@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::env;
 
 pub struct Asset {
     name: String,
@@ -24,11 +23,9 @@ impl AssetLedger {
     }
 
     pub fn transfer_asset(&mut self, from_account: String, to_account: String, amount: u64) -> bool {
-        let from_balance = self.balances.entry(from_account).or_default();
-        if *from_balance >= amount {
-            *from_balance -= amount;
-            let to_balance = self.balances.entry(to_account).or_insert(0);
-            *to_balance += amount;
+        if self.has_sufficient_balance(&from_account, amount) {
+            self.decrease_balance(&from_account, amount);
+            self.increase_balance(&to_account, amount);
             true
         } else {
             false
@@ -37,6 +34,20 @@ impl AssetLedger {
 
     pub fn query_balance(&self, account: &String) -> u64 {
         *self.balances.get(account).unwrap_or(&0)
+    }
+
+    fn has_sufficient_balance(&self, account: &String, amount: u64) -> bool {
+        *self.balances.get(account).unwrap_or(&0) >= amount
+    }
+
+    fn decrease_balance(&mut self, account: &String, amount: u64) {
+        let balance = self.balances.get_mut(account).unwrap();
+        *balance -= amount;
+    }
+
+    fn increase_balance(&mut self, account: &String, amount: u64) {
+        let balance = self.balances.entry(account.clone()).or_insert(0);
+        *balance += amount;
     }
 }
 
@@ -54,23 +65,14 @@ impl AssetManager {
     }
 
     pub fn issue_new_asset(&mut self, name: String, total_supply: u64, account: String) {
-        let asset = Asset {
-            name: name.clone(),
-            total_supply,
-            frozen: false,
-        };
-        self.assets.insert(name.clone(), asset);
+        self.create_and_store_asset(name.clone(), total_supply);
         let ledger = self.ledgers.entry(name).or_insert_with(AssetLedger::new);
         ledger.issue_asset(account, total_supply);
     }
 
     pub fn transfer_assets(&mut self, asset_name: String, from_account: String, to_account: String, amount: u64) -> bool {
-        if let Some(asset) = self.assets.get(&asset_name) {
-            if !asset.frozen {
-                if let Some(ledger) = self.ledgers.get_mut(&asset_name) {
-                    return ledger.transfer_asset(from_account, to_account, amount);
-                }
-            }
+        if self.is_asset_transferable(&asset_name) {
+            return self.transfer_asset_between_accounts(&asset_name, from_account, to_account, amount);
         }
         false
     }
@@ -93,6 +95,30 @@ impl AssetManager {
         } else {
             0
         }
+    }
+
+    fn create_and_store_asset(&mut self, name: String, total_supply: u64) {
+        let asset = Asset {
+            name: name.clone(),
+            total_supply,
+            frozen: false,
+        };
+        self.assets.insert(name, asset);
+    }
+
+    fn is_asset_transferable(&self, asset_name: &String) -> bool {
+        if let Some(asset) = self.assets.get(asset_name) {
+            !asset.frozen
+        } else {
+            false
+        }
+    }
+
+    fn transfer_asset_between_accounts(&mut self, asset_name: &String, from_account: String, to_account: String, amount: u64) -> bool {
+        if let Some(ledger) = self.ledgers.get_mut(asset_name) {
+            return ledger.transfer_asset(from_account, to_account, amount);
+        }
+        false
     }
 }
 
