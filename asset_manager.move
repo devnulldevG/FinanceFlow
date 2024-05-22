@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 pub struct Asset {
     name: String,
@@ -8,6 +8,19 @@ pub struct Asset {
 
 pub struct AssetLedger {
     balances: HashMap<String, u64>,
+}
+
+pub struct AssetTransferLog {
+    pub from: String,
+    pub to: String,
+    pub amount: u64,
+    pub asset_name: String,
+}
+
+impl fmt::Display for AssetTransferLog {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "AssetTransfer -> From: {}, To: {}, Amount: {}, Asset: {}", self.from, self.to, self.amount, self.asset_name)
+    }
 }
 
 impl AssetLedger {
@@ -22,13 +35,19 @@ impl AssetLedger {
         *balance += amount;
     }
 
-    pub fn transfer_asset(&mut self, from_account: String, to_account: String, amount: u64) -> bool {
+    pub fn transfer_asset(&mut self, from_account: String, to_account: String, amount: u64, asset_name: &str) -> Result<AssetTransferLog, &'static str> {
         if self.has_sufficient_balance(&from_account, amount) {
             self.decrease_balance(&from_account, amount);
             self.increase_balance(&to_account, amount);
-            true
+
+            Ok(AssetTransferLog {
+                from: from_account,
+                to: to_account,
+                amount,
+                asset_name: asset_name.to_string(),
+            })
         } else {
-            false
+            Err("Insufficient balance for the transaction.")
         }
     }
 
@@ -54,6 +73,7 @@ impl AssetLedger {
 pub struct AssetManager {
     assets: HashMap<String, Asset>,
     ledgers: HashMap<String, AssetLedger>,
+    transaction_logs: Vec<AssetTransferLog>,
 }
 
 impl AssetManager {
@@ -61,6 +81,7 @@ impl AssetManager {
         AssetManager {
             assets: HashMap::new(),
             ledgers: HashMap::new(),
+            transaction_logs: Vec::new(),
         }
     }
 
@@ -72,7 +93,15 @@ impl AssetManager {
 
     pub fn transfer_assets(&mut self, asset_name: String, from_account: String, to_account: String, amount: u64) -> bool {
         if self.is_asset_transferable(&asset_name) {
-            return self.transfer_asset_between_accounts(&asset_name, from_account, to_account, amount);
+            if let Some(ledger) = self.ledgers.get_mut(&asset_name) {
+                match ledger.transfer_asset(from_account.clone(), to_account.clone(), amount, &asset_name) {
+                    Ok(log) => {
+                        self.log_transaction(log);
+                        return true;
+                    }
+                    Err(_) => return false,
+                }
+            }
         }
         false
     }
@@ -114,11 +143,9 @@ impl AssetManager {
         }
     }
 
-    fn transfer_asset_between_accounts(&mut self, asset_name: &String, from_account: String, to_account: String, amount: u64) -> bool {
-        if let Some(ledger) = self.ledgers.get_mut(asset_name) {
-            return ledger.transfer_asset(from_account, to_account, amount);
-        }
-        false
+    fn log_transaction(&mut self, log: AssetTransferLog) {
+        println!("{}", log);
+        self.transaction_logs.push(log);
     }
 }
 
@@ -126,7 +153,11 @@ fn main() {
     let mut asset_manager = AssetManager::new();
 
     asset_manager.issue_new_asset("Gold".to_string(), 1000, "Alice".to_string());
-    asset_manager.transfer_assets("Gold".to_string(), "Alice".to_string(), "Bob".to_string(), 100);
+    if asset_manager.transfer_assets("Gold".to_string(), "Alice".to_string(), "Bob".to_string(), 100) {
+        println!("Transaction completed successfully.");
+    } else {
+        println!("Transaction failed.");
+    }
 
     let alice_balance = asset_manager.query_asset_balance(&"Gold".to_string(), &"Alice".to_string());
     let bob_balance = asset_manager.query_asset_balance(&"Gold".to_string(), &"Bob".to_string());
