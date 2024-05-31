@@ -21,13 +21,16 @@ module AssetManager {
         move_to(account, AssetsHolder { assets: empty_assets });
         let empty_logs = vector[];
         move_to(account, LogManager { logs: empty_logs });
+        
         log_operation(&signer::address_of(account), b"create_account");
     }
 
     public fun create_asset(account: &signer, id: u64, name: vector<u8>, amount: u128) {
         let assets_holder_ref = borrow_global_mut<AssetsHolder>(signer::address_of(account));
         let new_asset = Asset { id, name: name.clone(), amount };
+        
         vector::push_back(&mut assets_holder_ref.assets, new_asset);
+        
         log_operation(&signer::address_of(account), b"create_asset");
     }
 
@@ -40,6 +43,7 @@ module AssetManager {
 
         let mut sender_asset_ref = vector::borrow_mut(&mut sender_assets_ref.assets, sender_asset_index.unwrap());
         assert!(sender_asset_ref.amount >= transfer_amount, 1);
+        
         sender_asset_ref.amount -= transfer_amount;
         vector::remove(&mut sender_assets_ref.assets, sender_asset_index.unwrap());
 
@@ -60,8 +64,9 @@ module AssetManager {
         let holder_ref = borrow_global<AssetsHolder>(signer::address_of(account));
         let asset_index = vector::index_of(&holder_ref.assets, |asset| { asset.id == asset_id });
         if (asset_index == None) { return 0; }
+        
         let asset_ref = vector::borrow(&holder_ref.assets, asset_index.unwrap());
-
+        
         log_operation(&signer::address_of(account), b"get_asset_balance");
         
         asset_ref.amount
@@ -69,6 +74,6 @@ module AssetManager {
     
     private fun log_operation(account_addr: &address, operation_message: vector<u8>) acquires LogManager {
         let logs_ref = borrow_global_mut<LogManager>(*account_addr);
-        vector::push_back(&mut logs_ref.logs, operation_message);
+        vector::push_back(&mut logsise.logs, operation_message);
     }
 }
