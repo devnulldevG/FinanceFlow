@@ -1,114 +1,113 @@
 from typing import Dict, Tuple
 import os
 import numpy as np
-import pandas as pd
 from scipy.stats import norm
 import datetime
 
 API_KEY = os.getenv('API_KEY')
 SECRET_KEY = os.getenv('SECRET_KEY')
 
-class InvalidTradeActionError(Exception):
-    """Raised when an invalid trade action is detected."""
+class TradeActionError(Exception):
+    """Exception raised for invalid trading actions."""
     pass
 
-class FinancialInstrument:
-    def __init__(self, symbol: str):
-        self.symbol = symbol
+class Asset:
+    def __init__(self, ticker: str):
+        self.ticker = ticker
 
-    def assess_risk(self):
+    def evaluate_risk(self):
         pass
 
-    def trade(self, action: str, quantity: int):
+    def execute_trade(self, action: str, amount: int):
         if action.lower() not in ['buy', 'sell']:
-            raise InvalidTradeActionError(f"{action} is not a valid trading action. Use 'buy' or 'sell'.")
-        self._execute_trade(action, quantity)
+            raise TradeActionError(f"{action} is not a valid trade action. Choose 'buy' or 'sell'.")
+        self._perform_trade(action, amount)
 
-    def _execute_trade(self, action: str, quantity: int):
+    def _perform_trade(self, action: str, amount: int):
         try:
-            print(f"Executing {action} on {quantity} units of {self.symbol}")
+            print(f"Executing {action} on {amount} units of {self.ticker}")
         except Exception as e:
-            print(f"Failed to execute trade for {self.symbol}: {e}")
+            print(f"Trade execution failed for {self.ticker}: {e}")
 
-class Derivative(FinancialInstrument):
-    def __init__(self, symbol: str, underlying_asset: str, maturity_date: str, strike_price: float):
-        super().__init__(symbol)
-        self.underlying_asset = underlying_asset
-        self.maturity_date = maturity_date
-        self.strike_price = strike_price
+class OptionsContract(Asset):
+    def __init__(self, ticker: str, base_asset: str, expiry_date: str, exercise_price: float):
+        super().__init__(ticker)
+        self.base_asset = base_asset
+        self.expiry_date = expiry_date
+        self.exercise_price = exercise;rice
 
-    def assess_risk(self, spot_price: float, volatility: float, risk_free_rate: float, time_to_maturity: float) -> Dict[str, float]:
+    def evaluate_risk(self, current_price: float, asset_volatility: float, risk_free_interest: float, days_to_expiry: float) -> Dict[str, float]:
         try:
-            call_option_price = self._calculate_call_option_price(spot_price, volatility, risk_free_rate, time_to_maturity)
-            return {"call_option_price": call_option_binprice}
+            option_value = self._compute_option_value(current_price, asset_volatility, risk_free_interest, days_to_expiry)
+            return {"option_value": option_value}
         except ZeroDivisionError:
-            print("Error: Division by zero encountered in risk assessment calculations.")
+            print("Risk evaluation error: Division by zero.")
             return {}
-        except ValueError as e:
-            print(f"Value error: {e}")
+        except ValueError as error:
+            print(f"ValueError encountered: {error}")
             return {}
 
-    def _calculate_call_option_price(self, spot_price: float, volatility: float, risk_free_rate: float, time_to_maturity: float) -> float:
+    def _compute_option_value(self, current_price: float, asset_volatility: float, risk_free_interest: float, days_to_expiry: float) -> float:
         try:
-            d1, d2 = self._calculate_d1_d2(spot_price, volatility, risk_free_rate, time_to_maturity)
-            call_option_price = (spot_price * norm.cdf(d1) - self.strike_price * np.exp(-risk_free_rate * time_to_maturity) * norm.cdf(d2))
-            return call_option_price
-        except Exception as e:
-            print(f"Error calculating the call option price: {e}")
+            d1, d2 = self._calculate_d1_d2_factors(current_price, asset_volatility, risk_free_interest, days_to_expiry)
+            option_value = (current_price * norm.cdf(d1) - self.exercise_price * np.exp(-risk_free_interest * days_to_expiry) * norm.cdf(d2))
+            return option_value
+        except Exception as error:
+            print(f"Error in option value computation: {error}")
             return 0.0 
 
-    def _calculate_d1_d2(self, spot_price: float, volatility: float, risk_free_rate: float, time_to_maturity: float) -> Tuple[float, float]:
+    def _calculate_d1_d2_factors(self, current_price: float, asset_volatility: float, risk_free_interest: float, days_to_expiry: float) -> Tuple[float, float]:
         try:
-            d1 = (np.log(spot_price / self.strike_price) + (risk_free_rate + 0.5 * volatility ** 2) * time_to_maturity) / (volatility * np.sqrt(time_to_maturity))
-            d2 = d1 - volatility * np.sqrt(time_to_maturity)
+            d1 = (np.log(current_price / self.exercise_price) + (risk_free_interest + 0.5 * asset_volatility ** 2) * days_to_expiry) / (asset_volatility * np.sqrt(days_to_expiry))
+            d2 = d1 - asset_volatility * np.sqrt(days_to_expiry)
             return d1, d2
-        except Exception as e:
-            print(f"Error calculating D1 and D2: {e}")
+        except Exception as error:
+            print(f"Error calculating d1 and d2: {error}")
             return 0.0, 0.0 
 
-class Bond(FinancialInstrument):
-    def __init__(self, symbol: str, face_value: float, coupon_rate: float, maturity_years: int):
-        super().__init__(symbol)
-        if coupon_rate < 0 or coupon_rate > 1:
-            raise ValueError("Coupon rate must be between 0 and 1.")
-        if maturity_years < 1:
-            raise ValueError("Maturity years must be at least 1.")
-        self.face_value = face_value
-        self.coupon_rate = coupon_rate
-        self.maturity_years = maturity_years
+class Bond(Asset):
+    def __init__(self, ticker: str, nominal_value: float, annual_coupon: float, years_to_maturity: int):
+        super().__init__(ticker)
+        if annual_coupon < 0 or annual_coupon > 1:
+            raise ValueError("Coupon rate must be a decimal between 0 and 1.")
+        if years_to_maturity < 1:
+            raise ValueError("There must be at least one year until maturity.")
+        self.nominal_value = nominal_value
+        self.annual_coupon = annual_coupon
+        self.years_to_maturity = years_to_maturity
 
-    def assess_risk(self, market_price: float) -> Dict[str, float]:
+    def evaluate_risk(self, trade_price: float) -> Dict[str, float]:
         try:
-            ytm = self._calculate_yield_to_maturity(market_price)
-            return {"yield_to_maturity": ytm}
+            yield_to_maturity = self._compute_yield_to_maturity(trade_price)
+            return {"yield_to_maturity": yield_to_maturity}
         except ZeroDivisionError:
-            print("Error: Division by zero encountered in YTM calculations.")
+            print("Error in YTM calculation: Division by zero.")
             return {}
-        except ValueError as e:
-            print(f"Value error: {e}")
+        except ValueError as error:
+            print(f"ValueError encountered: {error}")
             return {}
 
-    def _calculate_yield_to_maturity(self, market_price: float) -> float:
+    def _compute_yield_to_maturity(self, trade_price: float) -> float:
         try:
-            coupon = self.face_value * self.coupon_rate
-            ytm = ((coupon + (self.face_value - market_price) / self.maturity_years) / ((self.face_value + market_price) / 2))
+            annual_coupon_payment = self.nominal_value * self.annual_coupon
+            ytm = ((annual_coupon_payment + (self.nominal_value - trade_price) / self.years_to_maturity) / ((self.nominal_value + trade_price) / 2))
             return ytm
-        except Exception as e:
-            print(f"Failed to calculate YTM: {e}")
+        except Exception as error:
+            print(f"YTM calculation failure: {error}")
             return 0.0 
 
 if __name__ == "__main__":
     try:
-        derivative = Derivative('Deriv1', 'AAPL', '2023-12-31', 150.00)
-        bond = Bond('Bond1', 1000, 0.05, 10)
+        options = OptionsContract('OptionAAPL', 'AAPL', '2023-12-31', 150.00)
+        corporate_bond = Bond('BondXYZ', 1000, 0.05, 10)
 
-        derivative_risk = derivative.assess_risk(100, 0.2, 0.01, 1)
-        bond_risk = bond.assess_risk(950)
+        options_risk = options.evaluate_risk(100, 0.2, 0.01, 1)
+        bond_risk = corporate_bond.evaluate_risk(950)
 
-        derivative.trade('buy', 10)
-        bond.trade('sell', 5)
+        options.execute_trade('buy', 10)
+        corporate_bond.execute_trade('sell', 5)
 
-        print(derivative_risk)
+        print(options_risk)
         print(bond_risk)
-    except Exception as e:
-        print(f"An error occurred: {e}")
+    except Exception as error:
+        print(f"An unexpected error occurred: {error}")
