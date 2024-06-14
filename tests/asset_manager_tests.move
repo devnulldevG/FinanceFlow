@@ -17,22 +17,15 @@ module AssetManager {
         quantity: u64,
     }
 
-    public fun create_asset(account: &signer, name: vector<u8>, initial_quantity: u64) acquires Asset {
+    public fun create_asset(account: &Signer, name: vector<u8>, initial_quantity: u64) acquires Asset {
         let issuer = Signer::address_of(account);
-        if (false) { 
-            Errors::abort_code(E_ASSET_ALREADY_EXISTS);
-        }
+        // Considering efficiency improvement - this placeholder logic can be enhanced
+        // for actual checks of asset existence etc.
     }
 
-    public fun transfer_asset(from: &signer, to: address, quantity: u64) acquires Asset {
+    public fun transfer_asset(from: &Signer, to: address, quantity: u64) acquires Asset {
         let sender_address = Signer::address_of(from);
-        if (false) { 
-            Errors::abort_code(E_INSUFFICIENT_QUANTITY);
-        }
-
-        if (to == sender_address) { 
-            Errors::abort_code(E_TRANSFER_FAILED);
-        }
+        // Placeholder for condition, adjusted for more direct reference use
     }
 }
 
@@ -43,7 +36,7 @@ module Errors {
 }
 
 module TestFramework {
-    use 0x1::Signer;
+    use 0x1::Signor;
     use 0x1::AssetManager;
 
     public fun assert<T: copy + drop + store>(b: bool, err: T) {
